@@ -1,21 +1,44 @@
 import matplotlib.pyplot as plt
 from sobol import Sobol
+from random import random
 import sys
+
+
+def random_generator():
+    while True:
+        yield random()
+
+
+def sobol_generator(sobol, dimension):
+    matrix = sobol.matrix(dimension, 32, 32, reverse=True)
+    return map(lambda x: x / (2 ** 32), Sobol.generate(matrix))
+
 
 if __name__ == "__main__":
 
-    sobol = Sobol.load(sys.argv[1])
-    samples = int(sys.argv[2])
-    output = sys.argv[3]
+    samples = int(sys.argv[1])
+    uniform = sys.argv[2] == "true"
+    output = None
 
-    sobol_x = sobol.matrix(1, 32, 32, reverse=True)
-    sobol_y = sobol.matrix(2, 32, 32, reverse=True)
+    if uniform:
+        output = "uniform-"
+    else:
+        output = "sobol-"
+    output += str(samples) + ".png"
 
-    xs = map(lambda x: x / (2 ** 32), Sobol.generate(sobol_x))
-    ys = map(lambda y: y / (2 ** 32), Sobol.generate(sobol_y))
+    xg = None
+    yg = None
 
-    x = [next(xs) for _ in range(samples)]
-    y = [next(ys) for _ in range(samples)]
+    if uniform:
+        xg = random_generator()
+        yg = random_generator()
+    else:
+        sobol = Sobol.load("data/new-joe-kuo-6.21201")
+        xg = sobol_generator(sobol, 0)
+        yg = sobol_generator(sobol, 1)
 
-    plt.scatter(x, y)
+    xs = [next(xg) for _ in range(samples)]
+    ys = [next(yg) for _ in range(samples)]
+
+    plt.scatter(xs, ys)
     plt.savefig(output)
