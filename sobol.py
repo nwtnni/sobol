@@ -18,7 +18,27 @@ class Sobol:
             sample ^= matrix[trailing_zeros(index)]
             yield sample
 
-    # Returns the `index`th sample from `matrix`.
+    # Returns sample `index` from `matrix`.
+    #
+    # Interpreting the output depends on how `matrix` was constructed.
+    # Assuming output precision `o` and the flag `reverse = True`, then
+    # the floating point value of the output is:
+    #
+    # ```python
+    # float(output) / (2 ** o)
+    # ```
+    #
+    # Otherwise, if `reverse = False`, the output directly represents
+    # the radical inverse in base 2:
+    #
+    # ```txt
+    # output_1 * 2^{-1} + output_2 * 2^{-2} + ... + output_o * 2^{-o}
+    # ```
+    #
+    # Where `output_i` is the `i`th bit of `output` (counting left from
+    # the least-significant bit). Here's another [explanation from PBR][pbr].
+    #
+    # [pbr]: http://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/(0,_2)-Sequence_Sampler.html#eq:generator-base-scale
     @staticmethod
     def sample(matrix, index):
         column = 0
@@ -32,12 +52,14 @@ class Sobol:
 
     # Compute the Sobol generator matrix V for dimension `d`.
     #
+    # ```txt
     #                          A
     #          V            +-----+
     # +-----+-----+-----+   | a_1 |
     # | v_1 | ... | v_n | * | ... |
     # +-----+-----+-----+   | a_n |
     #                       +-----+
+    # ```
     #
     # The resulting matrix can produce up to `i` bits of output
     # for sample indices from `0` to `2^i - 1`. The output takes
@@ -51,10 +73,12 @@ class Sobol:
 
     # Compute inverse direction numbers `v1, ... v_n` according to:
     #
+    # ```txt
     # v_1 = m_1 / 2^1
     # v_2 = m_2 / 2^2
     # ...
     # v_n = m_n / 2^n
+    # ```
     #
     # Only the `p` most significant bits of `m_1, ... m_n` will be used.
     def invert(self, m, p):
@@ -167,6 +191,7 @@ if __name__ == "__main__":
     # s = 3
     # a = 0b010
     # m_i = 1, 3, 7
+    #
     sobol = Sobol([3], [2], [[1, 3, 7]])
     assert(sobol.directions(1, 6) == [1, 3, 7, 5, 7, 43])
 
