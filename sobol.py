@@ -9,15 +9,17 @@ class Sobol:
     #
     # Faster than calling `.sample()` one at a time due to iterating
     # over samples in Gray code order.
-    def generate(self, matrix, index):
-        sample = self.sample(matrix, gray(index))
+    @staticmethod
+    def generate(matrix, index):
+        sample = Sobol.sample(matrix, gray(index))
         while True:
             index += 1
             sample ^= matrix[trailing(index)]
             yield sample
 
     # Returns the `index`th sample from `matrix`.
-    def sample(self, matrix, index):
+    @staticmethod
+    def sample(matrix, index):
         column = 0
         output = 0
         while index > 0:
@@ -157,9 +159,9 @@ if __name__ == "__main__":
     assert(sobol.directions(1, 6) == [1, 3, 7, 5, 7, 43])
 
     matrix = sobol.matrix(1, 5, 6)
-    assert(sobol.sample(matrix, gray(23)) == int("10001", 2))
+    assert(Sobol.sample(matrix, gray(23)) == int("10001", 2))
 
-    generator = sobol.generate(matrix, 0)
+    generator = Sobol.generate(matrix, 0)
     for (index, sample) in enumerate(generator, 1):
         if index == 1:
             assert(sample == int("01", 2))
