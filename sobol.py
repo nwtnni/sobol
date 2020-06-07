@@ -1,9 +1,18 @@
 import copy
 from functools import reduce
-import sys
 
 
 class Sobol:
+
+    def sample(self, matrix, input):
+        column = 0
+        output = 0
+        while input > 0:
+            if input & 1 > 0:
+                output ^= matrix[column]
+            input >>= 1
+            column += 1
+        return output
 
     # Compute the Sobol generator matrix V:
     #
@@ -16,18 +25,8 @@ class Sobol:
     #
     # Here `v_1, ..., v_n` are `m`-bit numbers.
     #
-    def matrix(self, dimension, m, n, reverse=True, binary=True):
-        v = self.invert(self.directions(dimension, n), m)
-
-        if binary and reverse:
-            return map(lambda v_i: "{:0{}b}".format(v_i, m)[::-1], v)
-        elif binary:
-            return map(lambda v_i: "{:0{}b}".format(v_i, m), v)
-        elif reverse:
-            v = map(lambda v_i: int("{:0{}b}".format(v_i, m)[::-1], 2), v)
-            return map(lambda v_i: "{:0{}x}".format(v_i, (m + 3) // 4), v)
-        else:
-            return map(lambda v_i: "{:0{}x}".format(v_i, (m + 3) // 4), v)
+    def matrix(self, dimension, m, n):
+        return self.invert(self.directions(dimension, n), m)
 
     # Compute inverse direction numbers:
     #
@@ -128,8 +127,8 @@ if __name__ == "__main__":
     sobol = Sobol([3], [2], [[1, 3, 7]])
     assert(sobol.directions(1, 6) == [1, 3, 7, 5, 7, 43])
 
-    sobol = Sobol.load(sys.argv[1])
-    for i in range(4):
-        for line in sobol.matrix(i, 32, 52, reverse=True, binary=False):
-            print(line)
-        print()
+    def gray(n):
+        return n ^ (n >> 1)
+
+    matrix = sobol.matrix(1, 5, 6)
+    assert(sobol.sample(matrix, gray(23)) == int("10001", 2))
