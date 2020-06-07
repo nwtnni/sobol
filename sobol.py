@@ -1,8 +1,46 @@
 import copy
 from functools import reduce
+import sys
 
 
 class Sobol:
+
+    # Compute the Sobol generator matrix V:
+    #
+    #                          A
+    #          V            +-----+
+    # +-----+-----+-----+   | a_1 |
+    # | v_1 | ... | v_n | * | ... |
+    # +-----+-----+-----+   | a_n |
+    #                       +-----+
+    #
+    # Here `v_1, ..., v_n` are `m`-bit numbers.
+    #
+    def matrix(self, dimension, m, n, reverse=True, binary=True):
+        v = self.invert(self.directions(dimension, n), m)
+
+        if binary and reverse:
+            return map(lambda v_i: "{:0{}b}".format(v_i, m)[::-1], v)
+        elif binary:
+            return map(lambda v_i: "{:0{}b}".format(v_i, m), v)
+        elif reverse:
+            v = map(lambda v_i: int("{:0{}b}".format(v_i, m)[::-1], 2), v)
+            return map(lambda v_i: "{:0{}x}".format(v_i, (m + 3) // 4), v)
+        else:
+            return map(lambda v_i: "{:0{}x}".format(v_i, (m + 3) // 4), v)
+
+    # Compute inverse direction numbers:
+    #
+    # v_1 = m_1 / 2^1
+    # v_2 = m_2 / 2^2
+    # ...
+    # v_n = m_n / 2^n
+    #
+    def invert(self, m, precision):
+        return [
+            int("{:0{}b}".format(m_i, i)[:precision][::-1], 2)
+            for (i, m_i) in enumerate(m, 1)
+        ]
 
     # Compute the first `n` direction numbers `m_1, ..., m_n` for `dimension`
     def directions(self, dimension, n):
@@ -89,3 +127,9 @@ if __name__ == "__main__":
     # m_i = 1, 3, 7
     sobol = Sobol([3], [2], [[1, 3, 7]])
     assert(sobol.directions(1, 6) == [1, 3, 7, 5, 7, 43])
+
+    sobol = Sobol.load(sys.argv[1])
+    for i in range(4):
+        for line in sobol.matrix(i, 32, 52, reverse=True, binary=False):
+            print(line)
+        print()
