@@ -1,5 +1,6 @@
 import copy
 from functools import reduce
+import sys
 
 
 class Sobol:
@@ -10,11 +11,11 @@ class Sobol:
     # Faster than calling `.sample()` one at a time due to iterating
     # over samples in Gray code order.
     @staticmethod
-    def generate(matrix, index):
+    def generate(matrix, index=0):
         sample = Sobol.sample(matrix, gray(index))
         while True:
             index += 1
-            sample ^= matrix[trailing(index)]
+            sample ^= matrix[trailing_zeros(index)]
             yield sample
 
     # Returns the `index`th sample from `matrix`.
@@ -29,7 +30,7 @@ class Sobol:
             column += 1
         return output
 
-    # Compute the Sobol generator matrix V:
+    # Compute the Sobol generator matrix V for dimension `d`.
     #
     #                          A
     #          V            +-----+
@@ -38,32 +39,35 @@ class Sobol:
     # +-----+-----+-----+   | a_n |
     #                       +-----+
     #
-    # Here `v_1, ..., v_n` are `m`-bit numbers.
-    #
-    def matrix(self, dimension, m, n):
-        return self.invert(self.directions(dimension, n), m)
+    # The resulting matrix can produce up to `i` bits of output
+    # for sample indices from `0` to `2^i - 1`. The output takes
+    # on discrete values in steps of `1 / 2^o`.
+    def matrix(self, d, i, o, reverse=False):
+        m = self.directions(d, i)
+        v = self.invert(m, o)
+        if reverse:
+            v = list(map(lambda v_i: reverse_bits(v_i, i), v))
+        return v
 
-    # Compute inverse direction numbers:
+    # Compute inverse direction numbers `v1, ... v_n` according to:
     #
     # v_1 = m_1 / 2^1
     # v_2 = m_2 / 2^2
     # ...
     # v_n = m_n / 2^n
     #
-    def invert(self, m, precision):
-        return [
-            int("{:0{}b}".format(m_i, i)[:precision][::-1], 2)
-            for (i, m_i) in enumerate(m, 1)
-        ]
+    # Only the `p` most significant bits of `m_1, ... m_n` will be used.
+    def invert(self, m, p):
+        return [reverse_bits(m_i, i, p) for (i, m_i) in enumerate(m, 1)]
 
-    # Compute the first `n` direction numbers `m_1, ..., m_n` for `dimension`
-    def directions(self, dimension, n):
-        if dimension == 0:
+    # Compute the first `n` direction numbers `m_1, ..., m_n` for dimension `d`
+    def directions(self, d, n):
+        if d == 0:
             return [1 for _ in range(n)]
 
-        s = self.s[dimension - 1]
-        a = self.a[dimension - 1]
-        m = copy.deepcopy(self.m_i[dimension - 1])
+        s = self.s[d - 1]
+        a = self.a[d - 1]
+        m = copy.deepcopy(self.m_i[d - 1])
 
         # Compute `a XOR b`
         def xor(a, b):
@@ -128,20 +132,28 @@ class Sobol:
         self.m_i = m_i
 
 
-# Compute the `n`th integer in [Gray code][gc] order
+# Compute the `n`th integer in [Gray code][gc] order.
 #
 # [gc]: https://en.wikipedia.org/wiki/Gray_code
 def gray(n):
     return n ^ (n >> 1)
 
 
-# Compute the number of trailing 0's in the binary representation of `n`
-def trailing(n):
+# Compute the number of trailing 0's in the binary representation of `n`.
+def trailing_zeros(n):
     count = 0
     while n & 1 == 0:
         count += 1
         n >>= 1
     return count
+
+
+# Take the `p` most significant bits of `n` and reverse them,
+# adding leading zeros to pad to bit length `b` if necessary.
+def reverse_bits(n, b, p=None):
+    if p is None:
+        p = b
+    return int("{:0{}b}".format(n, b)[:p][::-1], 2)
 
 
 if __name__ == "__main__":
@@ -173,3 +185,9 @@ if __name__ == "__main__":
             assert(sample == int("10001", 2))
         elif index > 23:
             break
+
+    sobol = Sobol.load(sys.argv[1])
+    for i in range(4):
+        for line in sobol.matrix(i, 32, 52, reverse=True):
+            print("{:0{}b}".format(line, 32))
+        print()
