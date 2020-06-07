@@ -4,13 +4,26 @@ from functools import reduce
 
 class Sobol:
 
-    def sample(self, matrix, input):
+    # Returns a generator that yields sequential samples from `matrix`
+    # starting at `index`.
+    #
+    # Faster than calling `.sample()` one at a time due to iterating
+    # over samples in Gray code order.
+    def generate(self, matrix, index):
+        sample = self.sample(matrix, gray(index))
+        while True:
+            index += 1
+            sample ^= matrix[trailing(index)]
+            yield sample
+
+    # Returns the `index`th sample from `matrix`.
+    def sample(self, matrix, index):
         column = 0
         output = 0
-        while input > 0:
-            if input & 1 > 0:
+        while index > 0:
+            if index & 1 > 0:
                 output ^= matrix[column]
-            input >>= 1
+            index >>= 1
             column += 1
         return output
 
@@ -113,8 +126,24 @@ class Sobol:
         self.m_i = m_i
 
 
+# Compute the `n`th integer in [Gray code][gc] order
+#
+# [gc]: https://en.wikipedia.org/wiki/Gray_code
+def gray(n):
+    return n ^ (n >> 1)
+
+
+# Compute the number of trailing 0's in the binary representation of `n`
+def trailing(n):
+    count = 0
+    while n & 1 == 0:
+        count += 1
+        n >>= 1
+    return count
+
+
 if __name__ == "__main__":
-    # Test case from Bratley, Fox
+    # Test cases from Bratley, Fox
     #
     # Polynomial: x^3 + x^2 + 1
     # Initial values: m_1 = 1, m_2 = 3, m_3 = 7
@@ -127,8 +156,18 @@ if __name__ == "__main__":
     sobol = Sobol([3], [2], [[1, 3, 7]])
     assert(sobol.directions(1, 6) == [1, 3, 7, 5, 7, 43])
 
-    def gray(n):
-        return n ^ (n >> 1)
-
     matrix = sobol.matrix(1, 5, 6)
     assert(sobol.sample(matrix, gray(23)) == int("10001", 2))
+
+    generator = sobol.generate(matrix, 0)
+    for (index, sample) in enumerate(generator, 1):
+        if index == 1:
+            assert(sample == int("01", 2))
+        elif index == 2:
+            assert(sample == int("10", 2))
+        elif index == 3:
+            assert(sample == int("11", 2))
+        elif index == 23:
+            assert(sample == int("10001", 2))
+        elif index > 23:
+            break
